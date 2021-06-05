@@ -1,7 +1,4 @@
 # Reconcile
-
-## Description
-
 Collaborative text editing.
 
 ## Installation
