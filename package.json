@@ -8,8 +8,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build:client": "parcel build client/index.html --dist-dir dist/src/client",
-    "postinstall": "npm run build && npm run build:client",
-    "build": "nest build",
+    "build": "nest build && npm run build:client",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
