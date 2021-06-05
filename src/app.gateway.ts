@@ -48,7 +48,7 @@ export class AppGateway
     const updatedId = v1();
     client.broadcast.emit(events.INSERT, { ...payload, id: updatedId });
     client.emit(events.MESSAGE_ID, { ...payload, updatedId });
-    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.from });
+    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.author });
   }
 
   @SubscribeMessage(events.DELETE)
@@ -66,14 +66,14 @@ export class AppGateway
     const updatedId = v1();
     client.broadcast.emit(events.DELETE, { ...payload, id: updatedId });
     client.emit(events.MESSAGE_ID, { ...payload, updatedId });
-    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.from });
+    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.author });
   }
 
   @SubscribeMessage(events.TYPING)
   handleTyping(client: Socket): void {
     const userId = client.id;
     this.d_stopTyping({ socket: client, id: userId });
-    client.broadcast.emit(events.TYPING, { userId });
+    client.broadcast.emit(events.TYPING, { author: userId });
   }
 
   @SubscribeMessage(events.EMPHASIZE_MESSAGE)
@@ -94,17 +94,17 @@ export class AppGateway
   }
 
   handleConnection(client: Socket, ...args: any[]) {
-    const userId = Math.random() > 0.5 ? AUTHORS.ALICE : AUTHORS.BOB;
-    this.logger.log(`Client connected: ${userId}`);
+    const author = Math.random() > 0.5 ? AUTHORS.ALICE : AUTHORS.BOB;
+    this.logger.log(`Client connected: ${author}`);
 
-    if (!this.connectedUsers.find((id) => id === userId))
-      this.connectedUsers.push(userId);
+    if (!this.connectedUsers.find((id) => id === client.id))
+      this.connectedUsers.push(client.id);
 
     client.emit(events.INFO, {
-      id: userId,
+      id: author,
       connectedUsers: this.connectedUsers,
     });
 
-    client.broadcast.emit(events.USER_CONNECTED, { userId });
+    client.broadcast.emit(events.USER_CONNECTED, { userId: author });
   }
 }

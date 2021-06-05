@@ -16,10 +16,10 @@ const port = window.location.port ? ':' + window.location.port : '';
 const host = `${window.location.hostname}${port}`;
 const socket = io.connect(host);
 let textInputEl: HTMLTextAreaElement = null;
-let userId = null;
+let author = null;
 let titleEl = null;
 const activeUsers = new Map();
-import { Reconcile } from './reconcile';
+import { CursorOffset, Reconcile } from './reconcile';
 import { AUTHORS, OPERATIONTYPE } from './Types';
 
 const keyIsEnter = keyIs('Enter');
@@ -28,24 +28,37 @@ let ReconcileAPI: Reconcile = null;
 
 const delayShort = delay(1000);
 const delayLong = delay(2000);
-const delayTiny = delay(250);
 
 socket.on(events.INFO, ({ id, connectedUsers }) => {
-  userId = id;
+  author = id;
 
-  ReconcileAPI = new Reconcile(userId, v1(), function (content: string) {
-    console.log(content);
+  ReconcileAPI = new Reconcile(author, v1(), function (
+    content: string,
+    cursorOffsets: CursorOffset[],
+  ) {
+    let cursorPosition = textInputEl.selectionStart;
     textInputEl.value = content;
+
+    cursorOffsets.forEach((off) => {
+      if (off.index < cursorPosition) {
+        console.log(off.index, off.offset);
+        console.log(cursorPosition);
+        cursorPosition += off.offset;
+        console.log(cursorPosition);
+      }
+    });
+
+    textInputEl.setSelectionRange(cursorPosition, cursorPosition);
   });
 
   connectedUsers
-    .filter((user) => user !== userId)
+    .filter((user) => user !== author)
     .forEach((user) => {
-      addToActiveUsers({ userId: user });
+      addToActiveUsers({ author: user });
     });
 });
 
-type Connection = { userId: string };
+type Connection = { author: string };
 const $userConnection = new Stream<Connection>((observer) => {
   socket.on(events.USER_CONNECTED, observer.next);
   socket.on(events.USER_CONNECTED, observer.complete);
@@ -56,13 +69,13 @@ const $userDisconnection = new Stream<Connection>((observer) => {
   socket.on(events.USER_DISCONNETED, observer.complete);
 });
 
-type EditorInsert = { from: AUTHORS; text: string; index: number };
+type EditorInsert = { author: AUTHORS; text: string; index: number };
 const $editorInsert = new Stream<EditorInsert>((observer) => {
   socket.on(events.INSERT, observer.next);
   socket.on(events.DISCONNECT, observer.complete);
 });
 
-type EditorDelete = { from: AUTHORS; length: number; index: number };
+type EditorDelete = { author: AUTHORS; length: number; index: number };
 const $editorDelete = new Stream<EditorDelete>((observer) => {
   socket.on(events.DELETE, observer.next);
   socket.on(events.DISCONNECT, observer.complete);
@@ -86,39 +99,41 @@ const $messageId = new Stream((observer) => {
  * Appends the string to appropriate index
  * @param param0 { text, index }
  */
-const enqueueInsert = ({ text, index }: EditorInsert): void => {
+const enqueueInsert = ({ author, text, index }: EditorInsert): void => {
   if (text === undefined || text === null) return;
 
-  ReconcileAPI.enqueueMutation({
-    index,
-    type: OPERATIONTYPE.Insert,
-    text,
-  });
+  ReconcileAPI.enqueueMutation(
+    {
+      index,
+      type: OPERATIONTYPE.Insert,
+      text,
+    },
+    author,
+  );
 };
 
 /**
  * Deletes the string from appropriate index
  * @param param0 { length, index }
  */
-const enqueueDelete = ({ length, index }: EditorDelete): void => {
+const enqueueDelete = ({ author, length, index }: EditorDelete): void => {
   if (!length) return;
 
-  ReconcileAPI.enqueueMutation({
-    index,
-    type: OPERATIONTYPE.Delete,
-    length,
-  });
-};
-
-const emitTyping = () => {
-  socket.emit(events.TYPING, { userId });
+  ReconcileAPI.enqueueMutation(
+    {
+      index,
+      type: OPERATIONTYPE.Delete,
+      length,
+    },
+    author,
+  );
 };
 
 const emitInsertEvent = ({ index, text, id }) => {
   socket.emit(events.INSERT, {
-    from: userId,
+    author: author,
     index,
-    type: events.DELETE,
+    type: events.INSERT,
     text,
     id,
   });
@@ -126,7 +141,7 @@ const emitInsertEvent = ({ index, text, id }) => {
 
 const emitDeleteEvent = ({ index, length, id }) => {
   socket.emit(events.DELETE, {
-    from: userId,
+    author: author,
     index,
     type: events.DELETE,
     length,
@@ -134,33 +149,33 @@ const emitDeleteEvent = ({ index, length, id }) => {
   });
 };
 
-const addToActiveUsers = ({ userId }) => {
-  if (activeUsers.has(userId)) return;
+const addToActiveUsers = ({ author }) => {
+  if (activeUsers.has(author)) return;
 
   const userEl = document.createElement('span');
   userEl.classList.add('user', 'u-float-right');
   userEl.style.backgroundColor = getRandomColor();
 
-  activeUsers.set(userId, userEl);
+  activeUsers.set(author, userEl);
 };
 
-const removeFromActiveUsers = ({ userId }) => {
-  if (!activeUsers.has(userId)) return;
+const removeFromActiveUsers = ({ author }) => {
+  if (!activeUsers.has(author)) return;
 
-  activeUsers.get(userId).remove();
-  activeUsers.delete(userId);
+  activeUsers.get(author).remove();
+  activeUsers.delete(author);
 };
 
-const startTyping = ({ userId }) => {
-  if (!activeUsers.has(userId)) return;
+const startTyping = ({ author }) => {
+  if (!activeUsers.has(author)) return;
 
-  activeUsers.get(userId).classList.add('typing');
+  activeUsers.get(author).classList.add('typing');
 };
 
-const stopTyping = ({ userId }) => {
-  if (!activeUsers.has(userId)) return;
+const stopTyping = ({ author }) => {
+  if (!activeUsers.has(author)) return;
 
-  activeUsers.get(userId).classList.remove('typing');
+  activeUsers.get(author).classList.remove('typing');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -174,7 +189,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   promisifiedRAF()
     .then(delayLong)
-    .then(() => titleEl.classList.add('u-fade'));
+    .then(() => titleEl.classList.add('u-fade'))
+    .then(delayShort)
+    .then(() => (titleEl.style.display = 'none'));
 
   textInputEl.focus();
   textInputEl.select();
@@ -214,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
           index: insertStart,
           type: OPERATIONTYPE.Insert,
           text: stringToInsert,
-        });
+        }, author);
 
         emitInsertEvent({
           index: insertStart,
@@ -246,11 +263,14 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const lengthToDelete = deleteStart - textInputEl.selectionEnd;
 
-        ReconcileAPI.enqueueMutation({
-          index: deleteStart - lengthToDelete,
-          type: OPERATIONTYPE.Delete,
-          length: lengthToDelete,
-        });
+        ReconcileAPI.enqueueMutation(
+          {
+            index: deleteStart - lengthToDelete,
+            type: OPERATIONTYPE.Delete,
+            length: lengthToDelete,
+          },
+          author,
+        );
 
         emitDeleteEvent({
           index: deleteStart - lengthToDelete,
@@ -265,8 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
   $editorInsert
-    .filter(({ from }) => {
-      return from !== userId;
+    .filter((e) => {
+      return e.author !== author;
     })
     .subscribe({
       next: enqueueInsert,
@@ -274,8 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
   $editorDelete
-    .filter(({ from }) => {
-      return from !== userId;
+    .filter(e => {
+      return e.author !== author;
     })
     .subscribe({
       next: enqueueDelete,

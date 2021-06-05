@@ -31,28 +31,41 @@ interface ISnapShot {
   mutations: IMutation[];
 }
 
+export type CursorOffset = { index: number; offset: number };
+
+export type ContentUpdateCallback = (
+  content: string,
+  cursorOffsets: CursorOffset[],
+) => void;
+
 export class Reconcile {
   private mutationsQueue: IMutation[] = [];
-  private content: string = "";
+  private content: string = '';
   private origin: Origin;
   private author: AUTHORS;
   private conversationId: string;
   private shouldUpdate: boolean = false;
-  updateCallback: (content: string) => void;
+  private cursorOffsets: CursorOffset[] = [];
 
-  constructor(author: AUTHORS, conversationId: string, updateCallback ?: (content: string) => void) {
+  updateCallback: ContentUpdateCallback;
+
+  constructor(
+    author: AUTHORS,
+    conversationId: string,
+    updateCallback?: ContentUpdateCallback,
+  ) {
     this.author = author;
     this.conversationId = conversationId;
     this.updateCallback = updateCallback;
     this.update();
   }
 
-  enqueueMutation(data: IMutationData) {
+  enqueueMutation(data: IMutationData, author: AUTHORS) {
     this.shouldUpdate = true;
 
     this.mutationsQueue.push({
       data,
-      author: this.author,
+      author,
       conversationId: this.conversationId,
       origin: this.origin,
     });
@@ -70,8 +83,11 @@ export class Reconcile {
   private applyMutation() {
     if (this.mutationsQueue.length < 1) {
       if (this.shouldUpdate && this.updateCallback) {
-        this.updateCallback(this.getDocumentState().content);
+        this.updateCallback(this.getDocumentState().content, [
+          ...this.cursorOffsets,
+        ]);
 
+        this.cursorOffsets = [];
         this.shouldUpdate = false;
       }
       return;
@@ -95,21 +111,27 @@ export class Reconcile {
 
   private applyInsertion() {
     const { content } = this;
-    const { data } = this.mutationsQueue.shift();
+    const { data, author } = this.mutationsQueue.shift();
     const { index, text } = data;
 
     let updatedContent =
       content.substring(0, index) + text + content.substring(index);
+
+    if (this.author !== author)
+      this.cursorOffsets.push({ index, offset: text.length });
     this.content = updatedContent;
   }
 
   private applyDeletion() {
     const { content } = this;
-    const { data } = this.mutationsQueue.shift();
+    const { data, author } = this.mutationsQueue.shift();
     const { index, length } = data;
 
     let updatedContent =
       content.substring(0, index) + content.substring(index + length);
+
+    if (this.author !== author)
+      this.cursorOffsets.push({ index, offset: -1 * length });
     this.content = updatedContent;
   }
 
