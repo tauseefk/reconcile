@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: v1(),
       };
     })
-    .debounceTime(300) // accumulate keystrokes until the user stops for 300ms; should probably throttle instead
+    .debounceTime(2000) // accumulate keystrokes until the user stops for 300ms; should probably throttle instead
     .subscribe({
       next: ({ id, e }) => {
         e.preventDefault();
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: v1(),
       };
     })
-    .debounceTime(300)
+    .debounceTime(2000)
     .subscribe({
       next: ({ id, e }) => {
         e.preventDefault();
@@ -294,7 +294,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
   $editorAck.subscribe({
-    next: (x) => console.log(x),
+    next: ({ origin }) => {
+      docOrigin = { ...origin };
+    }, // TODO: update origin here
     complete: noOp,
   });
 });

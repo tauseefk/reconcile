@@ -27,3 +27,9 @@ export interface IMutation {
   data: IMutationData;
   origin: Origin;
 }
+
+export interface IConversation {
+  id: string;
+  lastMutation: IMutation;
+  text: string;
+}

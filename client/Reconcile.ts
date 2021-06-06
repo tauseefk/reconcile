@@ -111,28 +111,20 @@ export class Reconcile {
 
   private applyInsertion() {
     const { content } = this;
-    const { data, author } = this.mutationsQueue.shift();
+    const { data } = this.mutationsQueue.shift();
     const { index, text } = data;
 
-    let updatedContent =
+    this.content =
       content.substring(0, index) + text + content.substring(index);
-
-    if (this.author !== author)
-      this.cursorOffsets.push({ index, offset: text.length });
-    this.content = updatedContent;
   }
 
   private applyDeletion() {
     const { content } = this;
-    const { data, author } = this.mutationsQueue.shift();
+    const { data } = this.mutationsQueue.shift();
     const { index, length } = data;
 
-    let updatedContent =
+    this.content =
       content.substring(0, index) + content.substring(index + length);
-
-    if (this.author !== author)
-      this.cursorOffsets.push({ index, offset: -1 * length });
-    this.content = updatedContent;
   }
 
   private createSnapshot() {}
