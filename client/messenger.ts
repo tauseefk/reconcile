@@ -78,6 +78,11 @@ const $editorDelete = new Stream<IMutation>((observer) => {
   socket.on(EVENTS.DISCONNECT, observer.complete);
 });
 
+const $editorAck = new Stream<unknown>((observer) => {
+  socket.on(EVENTS.ACK, observer.next);
+  socket.on(EVENTS.ACK, observer.complete);
+});
+
 /**
  * Appends the string to appropriate index
  * @param param0 { text, index }
@@ -287,4 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
       next: enqueueDelete,
       complete: noOp,
     });
+
+  $editorAck.subscribe({
+    next: (x) => console.log(x),
+    complete: noOp,
+  });
 });

@@ -6,6 +6,7 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
+  WsResponse,
 } from '@nestjs/websockets';
 import { Socket, Server } from 'socket.io';
 import { EVENTS } from '../events';
@@ -96,7 +97,7 @@ export class AppGateway
   }
 
   @SubscribeMessage(EVENTS.INSERT)
-  handleInsert(client: Socket, payload: IMutation): void {
+  handleInsert(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
 
     const { origin } = payload;
@@ -124,10 +125,12 @@ export class AppGateway
     this.updateOrigin(payload.author);
 
     client.broadcast.emit(EVENTS.INSERT, { ...payload });
+
+    return { data: { ...data, origin: this.docOrigin }, event: EVENTS.ACK };
   }
 
   @SubscribeMessage(EVENTS.DELETE)
-  handleDelete(client: Socket, payload: IMutation): void {
+  handleDelete(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
 
     const { origin } = payload;
@@ -154,6 +157,8 @@ export class AppGateway
     this.updateOrigin(payload.author);
 
     client.broadcast.emit(EVENTS.DELETE, { ...payload });
+
+    return { data: { ...data, origin: this.docOrigin }, event: EVENTS.ACK };
   }
 
   handleDisconnect(client: Socket) {
