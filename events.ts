@@ -1,16 +1,11 @@
-export const events = {
-  CONNECTION: 'connection',
-  DISCONNECT: 'disconnect',
-  INFO: 'info',
-  NEW_MESSAGE: 'newMessage',
-  TYPING: 'userTyping',
-  STOPPED_TYPING: 'userStoppedTyping',
-  USER_CONNECTED: 'userConnected',
-  USER_DISCONNETED: 'userDisconnected',
-  MESSAGE_ID: 'messageId',
-  EMPHASIZE_MESSAGE: 'emphasizeMessage',
-  INSERT: 'insert',
-  DELETE: 'delete',
-  undo: 'undo',
-  redo: 'redo',
-};
+export enum EVENTS {
+  CONNECTION = 'connection',
+  DISCONNECT = 'disconnect',
+  INFO = 'info',
+  USER_CONNECTED = 'userConnected',
+  USER_DISCONNETED = 'userDisconnected',
+  INSERT = 'insert',
+  DELETE = 'delete',
+  undo = 'undo',
+  redo = 'redo',
+}

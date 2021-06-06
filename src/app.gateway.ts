@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common'
+import { Logger } from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -6,83 +6,154 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-} from '@nestjs/websockets'
-import { Socket, Server } from 'socket.io'
-import { events } from '../events'
-import { v1 } from 'uuid'
-import { AUTHORS } from 'client/Types'
-
-const debounce = (fn: Function, ms: number) => {
-  let timer = null
-  return (...args) => {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(fn.bind(null, ...args), ms)
-  }
-}
+} from '@nestjs/websockets';
+import { Socket, Server } from 'socket.io';
+import { EVENTS } from '../events';
+import {
+  AUTHORS,
+  IMutation,
+  IMutationData,
+  OPERATIONTYPE,
+  Origin,
+} from 'client/Types';
 
 @WebSocketGateway()
 export class AppGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  connectedUsers = [];
-
-  d_stopTyping = debounce(({ socket, id }) => {
-    socket.broadcast.emit(events.STOPPED_TYPING, { userId: id });
-  }, 1000);
-
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('AppGateway');
 
-  @SubscribeMessage(events.INSERT)
-  handleInsert(client: Socket, payload: any): void {
-    if (Buffer.isBuffer(payload)) {
-      try {
-        payload = JSON.parse(payload.toString());
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-    }
-    this.logger.log(payload);
-
-    const updatedId = v1();
-    client.broadcast.emit(events.INSERT, { ...payload, id: updatedId });
-    client.emit(events.MESSAGE_ID, { ...payload, updatedId });
-    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.author });
-  }
-
-  @SubscribeMessage(events.DELETE)
-  handleDelete(client: Socket, payload: any): void {
-    if (Buffer.isBuffer(payload)) {
-      try {
-        payload = JSON.parse(payload.toString());
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-    }
-    this.logger.log(payload);
-
-    const updatedId = v1();
-    client.broadcast.emit(events.DELETE, { ...payload, id: updatedId });
-    client.emit(events.MESSAGE_ID, { ...payload, updatedId });
-    client.broadcast.emit(events.STOPPED_TYPING, { userId: payload.author });
-  }
-
-  @SubscribeMessage(events.TYPING)
-  handleTyping(client: Socket): void {
-    const userId = client.id;
-    this.d_stopTyping({ socket: client, id: userId });
-    client.broadcast.emit(events.TYPING, { author: userId });
-  }
-
-  @SubscribeMessage(events.EMPHASIZE_MESSAGE)
-  handleEmphasize(client: Socket): void {
-    client.broadcast.emit(events.EMPHASIZE_MESSAGE, { id: client.id });
-  }
+  connectedUsers = [];
+  docOrigin: Origin = { alice: 0, bob: 0 };
+  mutationsStack: IMutation[] = [];
 
   afterInit(server: Server) {
     this.logger.log('init');
+  }
+
+  isOriginOlder(origin: Origin, cmpOrigin: Origin) {
+    return cmpOrigin.alice >= origin.alice || cmpOrigin.bob >= origin.bob;
+  }
+
+  /**
+   * If the origin of the new mutation is older than the current origin, pop the mutation stack until correct origin is found and combine.
+   * @param mutation new mutation to compare against
+   */
+  transformMutation(mutation: IMutation): IMutationData {
+    const { origin } = mutation;
+    const tempMutationsStack: IMutation[] = [];
+    let transformedMutationData: IMutationData = { ...mutation.data };
+
+    let currentMutationFromStack = this.mutationsStack.pop();
+    while (
+      currentMutationFromStack &&
+      this.isOriginOlder(origin, currentMutationFromStack.origin)
+    ) {
+      tempMutationsStack.push(currentMutationFromStack);
+      currentMutationFromStack = this.mutationsStack.pop();
+    }
+
+    while (tempMutationsStack.length) {
+      const m = tempMutationsStack.pop();
+
+      if (m.author === mutation.author) continue;
+
+      const { data } = m;
+      if (data.index <= mutation.data.index)
+        transformedMutationData = this.applyTransform(
+          transformedMutationData,
+          data,
+        );
+
+      this.mutationsStack.push(m); // push mutations back to the original stack
+    }
+
+    return transformedMutationData;
+  }
+
+  /**
+   * @param a new mutation
+   * @param b mutation to compare against
+   * @returns
+   */
+  applyTransform(a: IMutationData, b: IMutationData): IMutationData {
+    switch (b.type) {
+      case OPERATIONTYPE.Insert:
+        return { ...a, index: a.index + b.text.length };
+      case OPERATIONTYPE.Delete:
+        return { ...a, index: a.index - b.length };
+      default:
+        return a;
+    }
+  }
+
+  updateOrigin(author: AUTHORS) {
+    const { alice, bob } = this.docOrigin;
+
+    if (author === AUTHORS.ALICE) this.docOrigin = { alice: alice + 1, bob };
+    if (author === AUTHORS.BOB) this.docOrigin = { alice, bob: bob + 1 };
+  }
+
+  @SubscribeMessage(EVENTS.INSERT)
+  handleInsert(client: Socket, payload: IMutation): void {
+    this.logger.log(payload);
+
+    const { origin } = payload;
+    let { data } = payload;
+    let currentMutationFromStack =
+      this.mutationsStack[this.mutationsStack.length - 1];
+
+    // if Origins mismatch; apply transformations
+    if (
+      currentMutationFromStack &&
+      this.isOriginOlder(origin, currentMutationFromStack.origin)
+    ) {
+      data = { ...this.transformMutation(payload) };
+    }
+
+    payload = {
+      author: payload.author,
+      conversationId: '1',
+      data: { ...data },
+      origin: this.docOrigin,
+    };
+
+    this.mutationsStack.push(payload);
+
+    this.updateOrigin(payload.author);
+
+    client.broadcast.emit(EVENTS.INSERT, { ...payload });
+  }
+
+  @SubscribeMessage(EVENTS.DELETE)
+  handleDelete(client: Socket, payload: IMutation): void {
+    this.logger.log(payload);
+
+    const { origin } = payload;
+    let { data } = payload;
+    let currentMutationFromStack =
+      this.mutationsStack[this.mutationsStack.length - 1];
+
+    // if Origins mismatch; apply transformations
+    if (
+      currentMutationFromStack &&
+      this.isOriginOlder(origin, currentMutationFromStack.origin)
+    )
+      data = { ...this.transformMutation(payload) };
+
+    payload = {
+      author: payload.author,
+      conversationId: '1',
+      data: { ...data },
+      origin: this.docOrigin,
+    };
+
+    this.mutationsStack.push(payload);
+
+    this.updateOrigin(payload.author);
+
+    client.broadcast.emit(EVENTS.DELETE, { ...payload });
   }
 
   handleDisconnect(client: Socket) {
@@ -90,7 +161,7 @@ export class AppGateway
     this.logger.log(`Client disconnected: ${userId}`);
 
     this.connectedUsers = this.connectedUsers.filter((id) => id !== userId);
-    client.broadcast.emit(events.USER_DISCONNETED, { userId });
+    client.broadcast.emit(EVENTS.USER_DISCONNETED, { userId });
   }
 
   handleConnection(client: Socket, ...args: any[]) {
@@ -100,11 +171,12 @@ export class AppGateway
     if (!this.connectedUsers.find((id) => id === client.id))
       this.connectedUsers.push(client.id);
 
-    client.emit(events.INFO, {
+    client.emit(EVENTS.INFO, {
       id: author,
       connectedUsers: this.connectedUsers,
+      origin: this.docOrigin,
     });
 
-    client.broadcast.emit(events.USER_CONNECTED, { userId: author });
+    client.broadcast.emit(EVENTS.USER_CONNECTED, { userId: author });
   }
 }

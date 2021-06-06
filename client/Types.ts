@@ -25,5 +25,5 @@ export interface IMutation {
   author: AUTHORS;
   conversationId: string;
   data: IMutationData;
-  origin: Origin; // Should we just use origin to sort, or use timestamp as well?
+  origin: Origin;
 }
