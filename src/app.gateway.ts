@@ -17,6 +17,7 @@ import {
   OPERATIONTYPE,
   Origin,
 } from 'client/Types';
+import { MutationTransformer } from './MutationTransformer';
 
 @WebSocketGateway()
 export class AppGateway
@@ -24,6 +25,7 @@ export class AppGateway
 {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('AppGateway');
+  private transformer: MutationTransformer = new MutationTransformer();
 
   connectedUsers = [];
   docOrigin: Origin = { alice: 0, bob: 0 };

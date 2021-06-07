@@ -108,32 +108,12 @@
   margin: 0px;
 }
 
-.u-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.u-fixed-bottom {
-  position: fixed;
-  bottom: 0px;
-  left: 0px;
-  padding: 10px 0px;
-  width: 100%;
-  margin: 0 auto;
-}
-
 .u-bg-white {
   background-color: #ffffff;
 }
 
-.u-sticky-bottom {
-  bottom: 0px;
-  padding: 10px 0px;
-  width: 100%;
-  margin: 0 auto;
-  height: calc(100% - 20px);
+.u-sticky {
+  height: 100%
 }
 
 .u-block {
@@ -174,7 +154,7 @@
 
 .input-message {
   width: 60%;
-  height: 100%;
+  height: 60%;
   font-size: 14px;
   border-radius: 4px;
   padding: 4px 8px;
@@ -182,20 +162,6 @@
 }
 
 .input-message:focus {
-  outline: none;
-}
-
-.input-send {
-  min-width: 10%;
-  min-height: 70px;
-  font-size: 16px;
-  border-radius: 4px;
-  padding: 4px 8px;
-  line-height: 20px;
-  margin-left: 10px;
-}
-
-.input-send:focus {
   outline: none;
 }
 
@@ -214,13 +180,6 @@
   height: 100%;
 }
 
-.messages {
-  min-height: calc(100vh - 110px);
-  max-width: 80%;
-  padding: 10px 20px;
-  overflow-y: auto;
-}
-
 #title {
   position: absolute;
   left: 0;
@@ -231,89 +190,6 @@
 }
 .u-fade {
   opacity: 0 !important;
-}
-
-.messages > div {
-  cursor: default;
-  user-select: none;
-  display: block;
-  clear: both;
-  border-radius: 6px;
-  padding: 4px 8px;
-  margin: 1px;
-  font-size: 14px;
-  line-height: 20px;
-  max-width: 70%;
-  word-break: break-word;
-  opacity: 0.3;
-  transition: opacity 0.5s, padding 0.2s, font-size 0.2s;
-  -webkit-transition: opacity 0.5s, padding 0.2s, font-size 0.2s;
-}
-
-.messages > div.visible {
-  opacity: 1;
-}
-
-.messages > div.large {
-  padding: 8px 12px;
-  font-size: 16px;
-}
-
-.owner-other {
-  background-color: #f1f0f0;
-  color: #000000;
-  float: left !important;
-}
-
-.owner-self {
-  background-color: #1787fb;
-  color: #ffffff;
-  float: right !important;
-}
-
-.owner-self:last-of-type {
-  border-bottom-right-radius: 0px;
-}
-
-.owner-other:last-of-type {
-  border-bottom-left-radius: 0px;
-}
-
-.owner-other + .owner-self {
-  margin-top: 50px;
-}
-
-.owner-self + .owner-other {
-  margin-top: 50px;
-}
-
-.user {
-  width: 8px;
-  height: 8px;
-  display: block;
-  z-index: 1;
-  border-radius: 50%;
-  margin-right: 4px;
-  margin-bottom: 4px;
-  -webkit-transition: all 0.3s ease-in-out;
-  -o-transition: all 0.3s ease-in-out;
-  transition: all 0.3s ease-in-out;
-}
-
-.active-users {
-  top: 0px;
-  right: 0px;
-  padding: 5px;
-  max-width: 6%;
-}
-
-.typing {
-  -webkit-animation: scale-fade 250ms;
-  animation: scale-fade 250ms;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-  -webkit-box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(43, 222, 115, 0.4);
-  box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(43, 222, 115, 0.4);
 }
 
 .blend-exclusion {
