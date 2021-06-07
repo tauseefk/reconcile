@@ -77,7 +77,6 @@ export class MutationTransformer {
    * @returns
    */
   private applyTransform(a: IMutationData, b: IMutationData): IMutationData {
-    console.log(a, b);
     switch (b.type) {
       case OPERATIONTYPE.Insert:
         return { ...a, index: a.index + b.text.length };
@@ -96,7 +95,21 @@ export class MutationTransformer {
       this.docOriginMap.set(conversationId, { alice, bob: bob + 1 });
   }
 
-  handleInsert(payload: IMutation): void {
+  private applyInsertion(mutation: IMutation, content: string) {
+    const { data } = mutation;
+    const { index, text } = data;
+
+    return content.substring(0, index) + text + content.substring(index);
+  }
+
+  private applyDeletion(mutation: IMutation, content: string) {
+    const { data } = mutation;
+    const { index, length } = data;
+
+    return content.substring(0, index) + content.substring(index + length);
+  }
+
+  enqueueMutation(payload: IMutation): void {
     const { author, conversationId } = payload;
     const currentMutationStack = this.getMutationStackFor(conversationId);
 
@@ -113,28 +126,23 @@ export class MutationTransformer {
     this.setMutationStackFor(conversationId, currentMutationStack); // set mutation stack back on the map
   }
 
-  handleDelete(payload: IMutation): void {
-    const { author, conversationId } = payload;
-    const currentMutationStack = this.getMutationStackFor(conversationId);
+  getSnapshotFor(conversationId: string) {
+    const mutationsList = this.getMutationStackFor(conversationId);
+    let content = '';
 
-    const data = { ...this.transformMutation(payload) };
-
-    currentMutationStack.push({
-      author: author,
-      conversationId: conversationId,
-      data: { ...data },
-      origin: this.getOriginFor(conversationId),
+    mutationsList.forEach((m) => {
+      if (m.data.type === OPERATIONTYPE.Insert) {
+        content = this.applyInsertion(m, content);
+      } else if (m.data.type === OPERATIONTYPE.Delete) {
+        content = this.applyDeletion(m, content);
+      }
     });
 
-    this.updateOriginFor(conversationId, author);
-    this.setMutationStackFor(conversationId, currentMutationStack); // set mutation stack back on the map
+    return content;
   }
 
-  showCurrentStackFor(conversationId: string) {
-    console.log(this.mutationStackMap.get(conversationId));
-  }
-
-  showCurrentOriginFor(conversationId: string) {
-    console.log(this.docOriginMap);
+  getLastMutationFor(conversationId: string) {
+    const mutationsList = this.getMutationStackFor(conversationId);
+    return mutationsList[mutationsList.length - 1];
   }
 }

@@ -33,8 +33,8 @@ export class AppGateway
     this.logger.log('init');
   }
 
-  isOriginOlder(origin: Origin, cmpOrigin: Origin) {
-    return cmpOrigin.alice >= origin.alice || cmpOrigin.bob >= origin.bob;
+  private isOriginConflicting(origin: Origin, cmpOrigin: Origin) {
+    return origin.alice <= cmpOrigin.alice && origin.bob <= cmpOrigin.bob;
   }
 
   /**
@@ -44,15 +44,16 @@ export class AppGateway
   transformMutation(mutation: IMutation): IMutationData {
     const { origin } = mutation;
     const tempMutationsStack: IMutation[] = [];
+    const mutationsStackCopy = [...this.mutationsStack];
     let transformedMutationData: IMutationData = { ...mutation.data };
 
-    let currentMutationFromStack = this.mutationsStack.pop();
+    let currentMutationFromStack = mutationsStackCopy.pop();
     while (
       currentMutationFromStack &&
-      this.isOriginOlder(origin, currentMutationFromStack.origin)
+      this.isOriginConflicting(origin, currentMutationFromStack.origin)
     ) {
       tempMutationsStack.push(currentMutationFromStack);
-      currentMutationFromStack = this.mutationsStack.pop();
+      currentMutationFromStack = mutationsStackCopy.pop();
     }
 
     while (tempMutationsStack.length) {
@@ -66,8 +67,6 @@ export class AppGateway
           transformedMutationData,
           data,
         );
-
-      this.mutationsStack.push(m); // push mutations back to the original stack
     }
 
     return transformedMutationData;
@@ -91,7 +90,6 @@ export class AppGateway
 
   updateOrigin(author: AUTHORS) {
     const { alice, bob } = this.docOrigin;
-
     if (author === AUTHORS.ALICE) this.docOrigin = { alice: alice + 1, bob };
     if (author === AUTHORS.BOB) this.docOrigin = { alice, bob: bob + 1 };
   }
@@ -99,30 +97,20 @@ export class AppGateway
   @SubscribeMessage(EVENTS.INSERT)
   handleInsert(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
+    const { author, conversationId } = payload;
 
-    const { origin } = payload;
-    let { data } = payload;
-    let currentMutationFromStack =
-      this.mutationsStack[this.mutationsStack.length - 1];
-
-    // if Origins mismatch; apply transformations
-    if (
-      currentMutationFromStack &&
-      this.isOriginOlder(origin, currentMutationFromStack.origin)
-    ) {
-      data = { ...this.transformMutation(payload) };
-    }
+    const data = { ...this.transformMutation(payload) };
 
     payload = {
-      author: payload.author,
-      conversationId: '1',
+      author,
+      conversationId,
       data: { ...data },
       origin: this.docOrigin,
     };
 
     this.mutationsStack.push(payload);
 
-    this.updateOrigin(payload.author);
+    this.updateOrigin(author);
 
     client.broadcast.emit(EVENTS.INSERT, { ...payload });
 
@@ -133,28 +121,20 @@ export class AppGateway
   handleDelete(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
 
-    const { origin } = payload;
-    let { data } = payload;
-    let currentMutationFromStack =
-      this.mutationsStack[this.mutationsStack.length - 1];
+    const { author, conversationId } = payload;
 
-    // if Origins mismatch; apply transformations
-    if (
-      currentMutationFromStack &&
-      this.isOriginOlder(origin, currentMutationFromStack.origin)
-    )
-      data = { ...this.transformMutation(payload) };
+    const data = { ...this.transformMutation(payload) };
 
     payload = {
-      author: payload.author,
-      conversationId: '1',
+      author,
+      conversationId,
       data: { ...data },
       origin: this.docOrigin,
     };
 
     this.mutationsStack.push(payload);
 
-    this.updateOrigin(payload.author);
+    this.updateOrigin(author);
 
     client.broadcast.emit(EVENTS.DELETE, { ...payload });
 

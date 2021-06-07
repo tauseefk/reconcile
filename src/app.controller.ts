@@ -1,4 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+} from '@nestjs/common';
 import { IConversation, IMutation } from 'client/Types';
 import { AppService } from './app.service';
 import { IInfoResponse } from './types';
@@ -19,11 +25,15 @@ export class AppController {
 
   @Post('/mutations')
   applyMutation(@Body() mutation: IMutation): { text: string } {
+    const { data, origin } = mutation;
+    if (!data || !origin)
+      throw new BadRequestException(`Mutation payload ${mutation} is invalid.`);
+
     return this.appService.applyMutation(mutation);
   }
 
   @Get('/conversations')
-  getConversations(): IConversation[] {
+  getConversations(): { conversations: IConversation[] } {
     return this.appService.getConversations();
   }
 }

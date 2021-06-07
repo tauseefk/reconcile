@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { IConversation, IMutation } from 'client/Types';
+import { MutationTransformer } from './MutationTransformer';
 import { IInfoResponse } from './types';
 
 @Injectable()
 export class AppService {
+  transformer: MutationTransformer = new MutationTransformer();
+  conversationSnapshots: Map<string, IConversation> = new Map();
+
   getPing(): { msg: string } {
     return {
       msg: 'pong',
@@ -31,16 +35,26 @@ export class AppService {
     };
   }
 
-  // TODO
   applyMutation(mutation: IMutation): { text: string } {
-    console.log(mutation)
+    const { conversationId } = mutation;
+    this.transformer.enqueueMutation(mutation);
+
+    const snapshot = this.transformer.getSnapshotFor(conversationId);
+
+    // update snapshots map
+    this.conversationSnapshots.set(conversationId, {
+      id: conversationId,
+      lastMutation: this.transformer.getLastMutationFor(conversationId),
+      text: snapshot,
+    });
+
     return {
-      text: '',
+      text: snapshot,
     };
   }
 
-  // TODO
-  getConversations(): IConversation[] {
-    return [];
+  getConversations(): { conversations: IConversation[] } {
+    const snapshots = Array.from(this.conversationSnapshots.values());
+    return { conversations: snapshots };
   }
 }
