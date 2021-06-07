@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -21,9 +20,13 @@ export class AppService {
   getInfo(): IInfoResponse {
     // TODO: add answers here
     const answers = {
-      1: `At first I thought the three questions were Leo Tolstoy's, however I read the instructions again.`,
-      2: `answer 2 here`,
-      3: `answer 3 here`,
+      1: `At first I thought the three questions were Leo Tolstoy's, however I read the instructions again.\
+      \nI anticipated that getting the algorithm implemented properly was going to take most of the time.\
+      So I started with creating the realtime doc viewer, similar to google docs. It turned out to be fascinating, \
+      managing cursor positions correctly is difficult. Then I spent some time scaffolding the BE api repo so make it easier to develop on top of.\
+      Lastly I spent some time working on the Frontend for the conversations viewer.`,
+      2: `If I could spend more time I'd work on unifying the frontend, and the last test suite for the algorithm. I still have a bug when multiple mutations are out of order and interdependent.`,
+      3: `I wish there was a recommended time to be spent on each part, however estimation and time management is part of the challenge when engineering software so it makes sense to be open-ended.`,
     };
     return {
       author: {
