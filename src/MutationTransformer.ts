@@ -16,7 +16,7 @@ export class MutationTransformer {
       : [];
   }
 
-  private getOriginFor(conversationId: string) {
+  getOriginFor(conversationId: string) {
     return this.docOriginMap.has(conversationId)
       ? { ...this.docOriginMap.get(conversationId) }
       : { alice: 0, bob: 0 };

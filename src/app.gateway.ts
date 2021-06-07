@@ -28,119 +28,49 @@ export class AppGateway
   private transformer: MutationTransformer = new MutationTransformer();
 
   connectedUsers = [];
-  docOrigin: Origin = { alice: 0, bob: 0 };
-  mutationsStack: IMutation[] = [];
 
   afterInit(server: Server) {
     this.logger.log('init');
   }
 
-  private isOriginConflicting(origin: Origin, cmpOrigin: Origin) {
-    return origin.alice <= cmpOrigin.alice && origin.bob <= cmpOrigin.bob;
-  }
-
-  /**
-   * If the origin of the new mutation is older than the current origin, pop the mutation stack until correct origin is found and combine.
-   * @param mutation new mutation to compare against
-   */
-  transformMutation(mutation: IMutation): IMutationData {
-    const { origin } = mutation;
-    const tempMutationsStack: IMutation[] = [];
-    const mutationsStackCopy = [...this.mutationsStack];
-    let transformedMutationData: IMutationData = { ...mutation.data };
-
-    let currentMutationFromStack = mutationsStackCopy.pop();
-    while (
-      currentMutationFromStack &&
-      this.isOriginConflicting(origin, currentMutationFromStack.origin)
-    ) {
-      tempMutationsStack.push(currentMutationFromStack);
-      currentMutationFromStack = mutationsStackCopy.pop();
-    }
-
-    while (tempMutationsStack.length) {
-      const m = tempMutationsStack.pop();
-
-      if (m.author === mutation.author) continue;
-
-      const { data } = m;
-      if (data.index <= mutation.data.index)
-        transformedMutationData = this.applyTransform(
-          transformedMutationData,
-          data,
-        );
-    }
-
-    return transformedMutationData;
-  }
-
-  /**
-   * @param a new mutation
-   * @param b mutation to compare against
-   * @returns
-   */
-  applyTransform(a: IMutationData, b: IMutationData): IMutationData {
-    switch (b.type) {
-      case OPERATIONTYPE.Insert:
-        return { ...a, index: a.index + b.text.length };
-      case OPERATIONTYPE.Delete:
-        return { ...a, index: a.index - b.length };
-      default:
-        return a;
-    }
-  }
-
-  updateOrigin(author: AUTHORS) {
-    const { alice, bob } = this.docOrigin;
-    if (author === AUTHORS.ALICE) this.docOrigin = { alice: alice + 1, bob };
-    if (author === AUTHORS.BOB) this.docOrigin = { alice, bob: bob + 1 };
-  }
-
   @SubscribeMessage(EVENTS.INSERT)
   handleInsert(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
-    const { author, conversationId } = payload;
+    const { conversationId } = payload;
 
-    const data = { ...this.transformMutation(payload) };
+    this.transformer.enqueueMutation(payload);
 
-    payload = {
-      author,
-      conversationId,
-      data: { ...data },
-      origin: this.docOrigin,
+    const mutation = this.transformer.getLastMutationFor(conversationId);
+
+    client.broadcast.emit(EVENTS.INSERT, { ...mutation });
+
+    return {
+      data: {
+        ...mutation.data,
+        origin: this.transformer.getOriginFor(conversationId),
+      },
+      event: EVENTS.ACK,
     };
-
-    this.mutationsStack.push(payload);
-
-    this.updateOrigin(author);
-
-    client.broadcast.emit(EVENTS.INSERT, { ...payload });
-
-    return { data: { ...data, origin: this.docOrigin }, event: EVENTS.ACK };
   }
 
   @SubscribeMessage(EVENTS.DELETE)
   handleDelete(client: Socket, payload: IMutation): WsResponse<unknown> {
     this.logger.log(payload);
+    const { conversationId } = payload;
 
-    const { author, conversationId } = payload;
+    this.transformer.enqueueMutation(payload);
 
-    const data = { ...this.transformMutation(payload) };
+    const mutation = this.transformer.getLastMutationFor(conversationId);
 
-    payload = {
-      author,
-      conversationId,
-      data: { ...data },
-      origin: this.docOrigin,
+    client.broadcast.emit(EVENTS.DELETE, { ...mutation });
+
+    return {
+      data: {
+        ...mutation.data,
+        origin: this.transformer.getOriginFor(conversationId),
+      },
+      event: EVENTS.ACK,
     };
-
-    this.mutationsStack.push(payload);
-
-    this.updateOrigin(author);
-
-    client.broadcast.emit(EVENTS.DELETE, { ...payload });
-
-    return { data: { ...data, origin: this.docOrigin }, event: EVENTS.ACK };
   }
 
   handleDisconnect(client: Socket) {
@@ -161,7 +91,7 @@ export class AppGateway
     client.emit(EVENTS.INFO, {
       id: author,
       connectedUsers: this.connectedUsers,
-      origin: this.docOrigin,
+      origin: this.transformer.getOriginFor("1"),
     });
 
     client.broadcast.emit(EVENTS.USER_CONNECTED, { userId: author });
