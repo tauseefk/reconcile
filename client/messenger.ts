@@ -16,6 +16,7 @@ const port = window.location.port ? ':' + window.location.port : '';
 const host = `${window.location.hostname}${port}`;
 const socket = io.connect(host);
 let textInputEl: HTMLTextAreaElement = null;
+let authorEl: HTMLDivElement = null;
 let author = null;
 let titleEl = null;
 const activeUsers = new Map();
@@ -33,6 +34,8 @@ const delayLong = delay(2000);
 socket.on(EVENTS.INFO, ({ id, connectedUsers, origin }) => {
   author = id;
   docOrigin = origin;
+
+  addUsername(author);
 
   ReconcileAPI = new Reconcile(author, v1(), function (
     content: string,
@@ -166,7 +169,12 @@ const removeFromActiveUsers = ({ author }) => {
   activeUsers.delete(author);
 };
 
+const addUsername = (username: AUTHORS) => {
+  authorEl.textContent = username;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+  authorEl = document.getElementById('username') as HTMLDivElement;
   titleEl = document.getElementById('title');
   textInputEl = document.getElementById('textInput') as HTMLTextAreaElement;
 
