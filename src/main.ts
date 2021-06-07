@@ -8,6 +8,7 @@ async function bootstrap() {
       /http\:\/\/localhost\:3001$/,
       'https://app.ava.me',
       'https://reconcile-ui.herokuapp.com',
+      /\.reconcile-ui.herokuapp\.com$/,
     ],
   });
   await app.listen(process.env.PORT || 3000);
