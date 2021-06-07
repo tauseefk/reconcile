@@ -138,6 +138,8 @@
 
 .u-single-column {
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .u-mb-med {

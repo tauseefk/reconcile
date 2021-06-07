@@ -145,4 +145,12 @@ export class MutationTransformer {
     const mutationsList = this.getMutationStackFor(conversationId);
     return mutationsList[mutationsList.length - 1];
   }
+
+  deleteMutationStackFor(conversationId: string) {
+    if (this.mutationStackMap.has(conversationId)) {
+      this.mutationStackMap.delete(conversationId);
+    } else {
+      throw new Error(`Mutation stack for ${conversationId} not found!`);
+    }
+  }
 }

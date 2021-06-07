@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { IConversation, IMutation } from 'client/Types';
 import { MutationTransformer } from './MutationTransformer';
 import { IInfoResponse } from './types';
@@ -56,5 +60,14 @@ export class AppService {
   getConversations(): { conversations: IConversation[] } {
     const snapshots = Array.from(this.conversationSnapshots.values());
     return { conversations: snapshots };
+  }
+
+  deleteConversation({ id }: { id: string }) {
+    if (this.conversationSnapshots.has(id)) {
+      this.conversationSnapshots.delete(id);
+      this.transformer.deleteMutationStackFor(id);
+    } else {
+      throw new InternalServerErrorException('Conversation not found!');
+    }
   }
 }
