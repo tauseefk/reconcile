@@ -34,7 +34,7 @@ export class AppService {
         name: 'Md Tauseef',
       },
       frontend: {
-        url: 'reconcile-ui.herokuapp.com',
+        url: 'https://reconcile-ui.herokuapp.com',
       },
       language: 'node.js',
       sources: 'https://github.com/tauseefk/reconcile',
